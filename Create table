@@ -1,0 +1,97 @@
+set search_path to lecture4_bogomolova;
+
+/*Çàäàíèå 1. Ñïðîåêòèðóéòå áàçó äàííûõ äëÿ ñëåäóþùèõ ñóùíîñòåé:
+· ÿçûê (àíãëèéñêèé, ôðàíöóçñêèé è ò. ï.);
+· íàðîäíîñòü (ñëàâÿíå, àíãëîñàêñû è ò. ï.);
+· ñòðàíû (Ðîññèÿ, Ãåðìàíèÿ è ò. ï.).
+
+Ïðàâèëà ñëåäóþùèå:
+· íà îäíîì ÿçûêå ìîãóò ãîâîðèòü íåñêîëüêî íàðîäíîñòåé;
+· îäíà íàðîäíîñòü ìîæåò ïðîæèâàòü â íåñêîëüêèõ ñòðàíàõ;
+· â êàæäîé ñòðàíå ìîãóò ïðîæèâàòü íåñêîëüêèõ íàðîäíîñòåé.
+
+Òàêèì îáðàçîì äîëæíî ïîëó÷èòüñÿ 5 òàáëèö: 3 òàáëèöû-ñïðàâî÷íèêà è 2 òàáëèöû ñî ñâÿçÿìè (ïðèìåð òàáëèöû ñî ñâÿçÿìè — film_actor).
+
+Òðåáîâàíèÿ ê òàáëèöàì-ñïðàâî÷íèêàì:
+· èäåíòèôèêàòîð ñóùíîñòè äîëæåí ïðèñâàèâàòüñÿ àâòîèíêðåìåíòîì;
+· íàèìåíîâàíèÿ ñóùíîñòåé íå äîëæíû ñîäåðæàòü null-çíà÷åíèÿ, íå äîëæíû äîïóñêàòüñÿ äóáëèêàòû â íàçâàíèÿõ ñóùíîñòåé*/
+create table "language" (
+language_id serial primary key,
+name varchar(50) unique not null,
+last_update timestamp default now()
+);--òàáëèöà-ñïðàâî÷íèê ÿçûêîâ
+
+create table nation (
+nation_id serial primary key,
+name varchar(50) unique not null,
+language_id int2 references language(language_id),
+last_update timestamp default now()
+);--òàáëèöà-ñïðàâî÷íèê íàðîäíîñòåé
+
+create table country (
+country_id serial primary key,
+country varchar(50) unique not null,
+last_update timestamp default now()
+);--òàáëèöà-ñïðàâî÷íèê ñòðàí
+
+create table nation_country (
+country_id int2 not null references country(country_id),
+nation_id int2 not null references nation(nation_id),
+last_update timestamp default now(),
+primary key (country_id,nation_id)
+);--ñâÿçíàÿ òàáëèöà ñòðàí è íàðîäíîñòåé
+
+create table nation_language (
+language_id int2 not null references language(language_id),
+nation_id int2 not null references nation(nation_id),
+last_update timestamp default now(),
+primary key (language_id,nation_id)
+);--ñâÿçíàÿ òàáëèöà ÿçûêîâ è íàðîäíîñòåé
+
+insert into language (name)
+values ('Ðóññêèé'),
+		('Àíãëèéñêèé'),
+		('Òóðåöêèé'),
+		('Íåìåöêèé'),
+		('Êèòàéñêèé')
+;--çàïîëíÿåì òàáëèöó ÿçûêîâ
+
+insert into country (country)
+values ('Ðîññèÿ'),
+		('Âåëèêîáðèòàíèÿ'),
+		('Òóðöèÿ'),
+		('Ãåðìàíèÿ'),
+		('Êèòàé')
+;--çàïîëíÿåì òàáëèöó ñòðàí
+
+insert into nation (name,language_id)
+values ('Ñëàâÿíå',1),
+		('Àíãëîñàêñû',2),
+		('Òþðêè',3),
+		('Ñàêñû',4),
+		('Õàíüöû',5),
+		('Óéãóðû',5);--âíåñåíà 6-ÿ çàïèñü äëÿ äåìîíñòðàöèè ïåðâîãî ïðàâèëà
+--çàïîëíÿåì òàáëèöó íàðîäíîñòåé
+
+insert into nation_language (language_id,nation_id)
+values ('1','1'),
+		('2','2'),
+		('3','3'),
+		('4','4'),
+		('5','5'),
+		('5','6')
+;--çàïîëíÿåì ñâÿçíóþ òàáëèöó ÿçûê-íàðîäíîñòü
+
+insert into nation_country (country_id,nation_id)
+values ('1','1'),
+		('2','2'),
+		('3','3'),
+		('4','4'),
+		('5','5'),
+		('5','6'),
+		('4','3'),
+		('4','1'),
+		('2','1'),
+		('1','5'),
+		('3','1')
+;--çàïîëíÿåì ñâÿçíóþ òàáëèöó ñòðàíà-íàðîäíîñòü
