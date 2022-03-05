@@ -1,10 +1,10 @@
---выводим названия ограничений первичных ключей, соединяя две таблицы
+--ГўГ»ГўГ®Г¤ГЁГ¬ Г­Г Г§ГўГ Г­ГЁГї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­ГЁГ© ГЇГҐГ°ГўГЁГ·Г­Г»Гµ ГЄГ«ГѕГ·ГҐГ©, Г±Г®ГҐГ¤ГЁГ­ГїГї Г¤ГўГҐ ГІГ ГЎГ«ГЁГ¶Г»
 
---выводим информацию о таблицах--
+--ГўГ»ГўГ®Г¤ГЁГ¬ ГЁГ­ГґГ®Г°Г¬Г Г¶ГЁГѕ Г® ГІГ ГЎГ«ГЁГ¶Г Гµ--
 select * from information_schema.key_column_usage;
 select * from information_schema.table_constraints;
 
---результат 19 строк, а не 17 из-за двух таблиц с составным первичным ключом--
+--Г°ГҐГ§ГіГ«ГјГІГ ГІ 19 Г±ГІГ°Г®ГЄ, Г  Г­ГҐ 17 ГЁГ§-Г§Г  Г¤ГўГіГµ ГІГ ГЎГ«ГЁГ¶ Г± Г±Г®Г±ГІГ ГўГ­Г»Г¬ ГЇГҐГ°ГўГЁГ·Г­Г»Г¬ ГЄГ«ГѕГ·Г®Г¬--
 select kcu.table_name, kcu.constraint_name
 from information_schema.key_column_usage kcu
 	join information_schema.table_constraints tc
@@ -12,7 +12,7 @@ from information_schema.key_column_usage kcu
 where kcu.constraint_schema = 'public' and constraint_type = 'PRIMARY KEY'
 order by 1,2;
 
---этот запрос не работает из-за distinct--
+--ГЅГІГ®ГІ Г§Г ГЇГ°Г®Г± Г­ГҐ Г°Г ГЎГ®ГІГ ГҐГІ ГЁГ§-Г§Г  distinct--
 select kcu.table_name, distinct kcu.constraint_name
 from information_schema.key_column_usage kcu
 	join information_schema.table_constraints tc
@@ -20,13 +20,13 @@ from information_schema.key_column_usage kcu
 where kcu.constraint_schema = 'public' and constraint_type = 'PRIMARY KEY'
 order by 1,2;
 
---используем группировку--
-select kcu.table_name as Название_таблицы,
-		kcu.constraint_name as Название_первичного_ключа
+--ГЁГ±ГЇГ®Г«ГјГ§ГіГҐГ¬ ГЈГ°ГіГЇГЇГЁГ°Г®ГўГЄГі--
+select kcu.table_name as ГЌГ Г§ГўГ Г­ГЁГҐ_ГІГ ГЎГ«ГЁГ¶Г»,
+		kcu.constraint_name as ГЌГ Г§ГўГ Г­ГЁГҐ_ГЇГҐГ°ГўГЁГ·Г­Г®ГЈГ®_ГЄГ«ГѕГ·Г 
 from information_schema.key_column_usage kcu
 	join information_schema.table_constraints tc
 		using (constraint_name)
 where kcu.constraint_schema = 'public' and constraint_type = 'PRIMARY KEY'
 group by 1,2
 order by 1,2;
---результат 17 строк--
+--Г°ГҐГ§ГіГ«ГјГІГ ГІ 17 Г±ГІГ°Г®ГЄ--
