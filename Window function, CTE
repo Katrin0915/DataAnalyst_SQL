@@ -1,0 +1,37 @@
+--Çàäàíèå 1. Ñäåëàéòå çàïðîñ ê òàáëèöå payment. Ïðîíóìåðóéòå âñå ïðîäàæè îò 1 äî N ïî äàòå
+
+select payment_id,
+		payment_date,
+		row_number () over (order by payment_date)
+from payment;
+
+/*Çàäàíèå 2. Èñïîëüçóÿ îêîííóþ ôóíêöèþ, äîáàâüòå êîëîíêó ñ ïîðÿäêîâûì íîìåðîì ïðîäàæè äëÿ êàæäîãî ïîêóïàòåëÿ, ñîðòèðîâêà ïëàòåæåé äîëæíà áûòü ïî äàòå*/
+
+select payment_id,
+		payment_date,
+		customer_id,
+		row_number () over (partition by customer_id order by payment_date)
+from payment;
+
+/*Çàäàíèå 3. Äëÿ êàæäîãî ïîëüçîâàòåëÿ ïîñ÷èòàéòå íàðàñòàþùèì èòîãîì ñóììó âñåõ åãî ïëàòåæåé, ñîðòèðîâêà äîëæíà áûòü ïî äàòå ïëàòåæà*/
+
+select last_name||' '||first_name as customer_name,
+		payment_id,
+		payment_date,
+		amount,
+		sum(amount) over (partition by customer_id order by payment_date)
+from customer 
+	join payment using (customer_id);
+
+--Çàäàíèå 4. Äëÿ êàæäîãî ïîêóïàòåëÿ âûâåäèòå äàííûå î åãî ïîñëåäíåé îïëàòå àðåíäû
+
+with cte1 as
+	(select customer_id,max(payment_date) as mpd
+	from payment p
+	group by 1)
+select p2.customer_id,p2.payment_id,p2.payment_date,amount
+from payment p2
+	join cte1 using (customer_id)
+where payment_date=mpd and amount>0
+order by 1;
+/*áåç âûðàæåíèÿ amount>0 ðåçóëüòàò 623, ò.ê ó íåêîòîðûõ ïîêóïàòåëåé åñòü ïëàòåæè ñ îäèíàêîâîé äàòîé è ñóììà ïëàòåæà îäíîãî èëè íåñêîëüêèõ èç íèõ ðàâíà íóëþ*/
