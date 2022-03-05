@@ -1,0 +1,80 @@
+/*Задание 1. С помощью оконной функции выведите для каждого сотрудника магазина стоимость продажи из предыдущей строки со значением по умолчанию 0.0 с сортировкой по дате*/
+
+select staff_id,
+		payment_id,
+		payment_date,
+		amount,
+		coalesce(lag(amount) over (partition by staff_id order by payment_date),0.) as last_amount
+from payment
+;
+
+/*Задание 2. С помощью оконной функции выведите для каждого сотрудника сумму продаж за март 2007 года с нарастающим итогом по каждому сотруднику и по каждой дате продажи (без учёта времени) с сортировкой по дате*/
+
+with cte as
+		(select staff_id,payment_date::date,sum(amount) as summ
+		from payment p
+		where payment_date between '2007-03-01' and '2007-03-31'
+		group by 1,2
+		)
+select (s.last_name||' '||s.first_name) as Staff_name,
+		cte.payment_date,
+		summ as Sales_amount,
+		sum(summ) over (partition by cte.staff_id order by cte.payment_date) as Total_amount
+from cte
+	join staff s using (staff_id);
+
+/*Задание 3. Для каждой страны определите и выведите одним SQL-запросом покупателей, которые попадают под условия:
+· покупатель, арендовавший наибольшее количество фильмов;
+· покупатель, арендовавший фильмов на самую большую сумму;
+· покупатель, который последним арендовал фильм*/
+
+with cte1 as
+	(select c.country_id,
+			r.customer_id,
+			last_name||' '||first_name as cus_name,
+			count(r.rental_id) films,
+			sum(amount) sum_amount,
+			max(rental_date) max_rental_date
+	from city c
+		join address a using (city_id)
+		join customer c2 using (address_id)
+		join rental r using (customer_id)
+		join payment p using(rental_id)
+	group by 1,2,3
+	),--вычисляем для каждого покупателя кол-во фильмов,сумму платежей,последнюю дату аренды
+	cte2 as
+	(select country_id,
+			customer_id,
+			cus_name,
+			films,
+			max(films) over (partition by country_id) as total_films,
+			sum_amount,
+			max(sum_amount) over (partition by country_id) as total_sa,
+			max_rental_date,
+			max(max_rental_date) over (partition by country_id) as total_date
+	from cte1
+	),--вычисляем максимумы предыдущих показателей(можно было отдельным сте и потом сджойнить,но так проще и быстрее)
+	cte3 as
+	(select country_id,cus_name as name1
+	from cte2
+	where films=total_films
+	),--фильтруем по первому условию
+	cte4 as
+	(select country_id,cus_name as name2
+	from cte2
+	where sum_amount=total_sa
+	),--фильтруем по второму условию
+	cte5 as
+	(select country_id,cus_name as name3
+	from cte2
+	where max_rental_date=total_date
+	)--фильтруем по третьему условию
+--соединяем три фильтра со страной
+select country as Страна,
+		name1 as "Арендовавший максимум фильмов",
+		name2 as "Арендовавший на максим.сумму",
+		name3 as "Арендовавший последним"
+from country
+	join cte3 using (country_id)
+	join cte4 using (country_id)
+	join cte5 using (country_id);
