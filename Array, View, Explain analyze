@@ -1,0 +1,132 @@
+--Çàäàíèå 1. Íàïèøèòå SQL-çàïðîñ, êîòîðûé âûâîäèò âñþ èíôîðìàöèþ î ôèëüìàõ ñî ñïåöèàëüíûì àòðèáóòîì “Behind the Scenes”
+
+select title, special_features
+from film
+where special_features @> array['Behind the Scenes']
+order by 1;
+
+/*Çàäàíèå 2. Íàïèøèòå åù¸ 2 âàðèàíòà ïîèñêà ôèëüìîâ ñ àòðèáóòîì “Behind the Scenes”, èñïîëüçóÿ äðóãèå ôóíêöèè èëè îïåðàòîðû ÿçûêà SQL äëÿ ïîèñêà çíà÷åíèÿ â ìàññèâå*/
+
+select title, special_features
+from film
+where 'Behind the Scenes'=any(special_features)
+order by 1;
+
+select title, special_features
+from film
+where special_features && array['Behind the Scenes']
+order by 1;
+
+select title, special_features
+from film
+where array_position(special_features,'Behind the Scenes') is not null
+order by 1;
+
+/*Çàäàíèå 3. Äëÿ êàæäîãî ïîêóïàòåëÿ ïîñ÷èòàéòå, ñêîëüêî îí áðàë â àðåíäó ôèëüìîâ ñî ñïåöèàëüíûì àòðèáóòîì “Behind the Scenes”.
+Îáÿçàòåëüíîå óñëîâèå äëÿ âûïîëíåíèÿ çàäàíèÿ: èñïîëüçóéòå çàïðîñ èç çàäàíèÿ 1, ïîìåù¸ííûé â CTE*/
+
+with cte as
+	(select film_id,special_features
+	from film
+	where special_features @> array['Behind the Scenes']
+	)
+select c.customer_id,last_name||' '||first_name,count(rental_id)
+from cte
+	join inventory i using (film_id)
+	join rental r using (inventory_id)
+	right join customer c using (customer_id)--åñëè åñòü ïîêóïàòåëè,êîòîðûå íå áðàëè â àðåíäó ôèëüìû ñ äàííûì àòðèáóòîì
+group by 1,2
+order by 1;
+
+/*Çàäàíèå 4. Äëÿ êàæäîãî ïîêóïàòåëÿ ïîñ÷èòàéòå, ñêîëüêî îí áðàë â àðåíäó ôèëüìîâ ñî ñïåöèàëüíûì àòðèáóòîì “Behind the Scenes”.
+Îáÿçàòåëüíîå óñëîâèå äëÿ âûïîëíåíèÿ çàäàíèÿ: èñïîëüçóéòå çàïðîñ èç çàäàíèÿ 1, ïîìåù¸ííûé â ïîäçàïðîñ, êîòîðûé íåîáõîäèìî èñïîëüçîâàòü äëÿ ðåøåíèÿ çàäàíèÿ*/
+
+select c.customer_id,last_name||' '||first_name,count(rental_id)
+from film f
+	join inventory i using (film_id)
+	join rental r using (inventory_id)
+	right join customer c using (customer_id)--åñëè åñòü ïîêóïàòåëè,êîòîðûå íå áðàëè â àðåíäó ôèëüìû ñ äàííûì àòðèáóòîì
+where f.film_id in (
+					select film_id
+					from film
+					where special_features @> array['Behind the Scenes']
+					)
+group by 1,2
+order by 1;
+
+/*Çàäàíèå 5. Ñîçäàéòå ìàòåðèàëèçîâàííîå ïðåäñòàâëåíèå ñ çàïðîñîì èç ïðåäûäóùåãî çàäàíèÿ è íàïèøèòå çàïðîñ äëÿ îáíîâëåíèÿ ìàòåðèàëèçîâàííîãî ïðåäñòàâëåíèÿ*/
+
+create materialized view mod_6_5 as
+	select c.customer_id,last_name||' '||first_name as customer_name,count(rental_id) as count_rental
+	from film f
+		join inventory i using (film_id)
+		join rental r using (inventory_id)
+		right join customer c using (customer_id)--åñëè åñòü ïîêóïàòåëè,êîòîðûå íå áðàëè â àðåíäó ôèëüìû ñ äàííûì àòðèáóòîì
+	where f.film_id in (
+						select film_id
+						from film
+						where special_features @> array['Behind the Scenes']
+						)
+	group by 1,2
+	order by 1
+with no data;
+
+refresh materialized view mod_6_5;
+
+/*Çàäàíèå 6. Ñ ïîìîùüþ explain analyze ïðîâåäèòå àíàëèç ñêîðîñòè âûïîëíåíèÿ çàïðîñîâ èç ïðåäûäóùèõ çàäàíèé è îòâåòüòå íà âîïðîñû:
+· ñ êàêèì îïåðàòîðîì èëè ôóíêöèåé ÿçûêà SQL, èñïîëüçóåìûìè ïðè âûïîëíåíèè äîìàøíåãî çàäàíèÿ, ïîèñê çíà÷åíèÿ â ìàññèâå ïðîèñõîäèò áûñòðåå;
+· êàêîé âàðèàíò âû÷èñëåíèé ðàáîòàåò áûñòðåå: ñ èñïîëüçîâàíèåì CTE èëè ñ èñïîëüçîâàíèåì ïîäçàïðîñà*/
+
+explain analyze
+select title, special_features
+from film
+where special_features @> array['Behind the Scenes']
+order by 1;--92.25, 0.267 ms, 7.151 ms
+
+explain analyze
+select title, special_features
+from film
+where special_features && array['Behind the Scenes']
+order by 1;--92.25, 0.226 ms, 7.231 ms
+
+explain analyze
+select title, special_features
+from film
+where 'Behind the Scenes'=any(special_features)
+order by 1;--102.25, 0.204 ms, 8.556 ms
+
+explain analyze
+select title, special_features
+from film
+where array_position(special_features,'Behind the Scenes') is not null
+order by 1;--103.42, 0.180 ms, 3.338 ms
+--ïåðâûå äâà âàðèàíòà ïîèñêà òðåáóþò ìåíüøå âñåãî ðåñóðñîâ, íî ïî ñêîðîñòè âûïîëíåíèÿ ïîñëåäíèé âàðèàíò ëó÷øå
+
+explain analyze
+with cte as
+	(select film_id,special_features
+	from film
+	where special_features @> array['Behind the Scenes']
+	)
+select c.customer_id,last_name||' '||first_name,count(rental_id)
+from cte
+	join inventory i using (film_id)
+	join rental r using (inventory_id)
+	right join customer c using (customer_id)--åñëè åñòü ïîêóïàòåëè,êîòîðûå íå áðàëè â àðåíäó ôèëüìû ñ äàííûì àòðèáóòîì
+group by 1,2
+order by 1;-- 787.51; 2.031 ms, 231.163 ms
+
+explain analyze
+select c.customer_id,last_name||' '||first_name,count(rental_id)
+from film f
+	join inventory i using (film_id)
+	join rental r using (inventory_id)
+	right join customer c using (customer_id)--åñëè åñòü ïîêóïàòåëè,êîòîðûå íå áðàëè â àðåíäó ôèëüìû ñ äàííûì àòðèáóòîì
+where f.film_id in (
+					select film_id
+					from film
+					where special_features @> array['Behind the Scenes']
+					)
+group by 1,2
+order by 1;--66,50; 2.922 ms, 270.118 ms
+--âëîæåííûé çàïðîñ òðåáóåò ìåíüøå âñåãî ðåñóðñîâ, íî ïî ñêîðîñòè âûïîëíåíèÿ ÑÒÅ ëó÷øå
