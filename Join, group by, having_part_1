@@ -1,0 +1,48 @@
+/*Задание 1. Посчитайте для каждого фильма, сколько раз его брали в аренду, а также общую стоимость аренды фильма за всё время*/
+select title Название,
+		rating Рейтинг,
+		c.name Жанр,
+		release_year "Год выпуска",
+		l.name Язык,
+		count(r.rental_id) "Количество аренд",
+		sum(p.amount) "Общая стоимость аренды"
+from film f
+	join "language" l using (language_id)
+	join film_category fc using (film_id)
+	join category c using (category_id)
+	join inventory i using (film_id)
+	join rental r using (inventory_id)
+	join payment p using (rental_id)
+group by f.film_id,c.name,l.name
+order by 1;
+
+/*Задание 2. Доработайте запрос из предыдущего задания и выведите с помощью него фильмы, которые ни разу не брали в аренду*/
+select title Название,
+		rating Рейтинг,
+		c.name Жанр,
+		release_year "Год выпуска",
+		l.name Язык,
+		count(r.rental_id) "Количество аренд",
+		sum(p.amount) "Общая стоимость аренды"
+from film f
+	join "language" l using (language_id)
+	join film_category fc using (film_id)
+	join category c using (category_id)
+	left join inventory i using (film_id)
+	left join rental r using (inventory_id)
+	left join payment p using (rental_id)
+group by f.film_id,c.name,l.name
+having count(r.rental_id)=0
+order by 1;
+
+/*Задание 3. Посчитайте количество продаж, выполненных каждым продавцом. Добавьте вычисляемую колонку «Премия». Если количество продаж превышает 7 300, то значение в колонке будет «Да», иначе должно быть значение «Нет»*/
+select last_name||' '||first_name "Фамилия и имя продавца",
+		count(rental_id) "Количество продаж",
+		case
+			when count(rental_id)>7300
+			then 'Да'
+			else 'Нет'
+		end Премия
+from staff
+	left join payment using (staff_id)--если есть продавец с нулевыми продажами, то при inner join он не попадет в выборку
+group by 1;
