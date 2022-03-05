@@ -1,0 +1,151 @@
+/*Çàäàíèå 1. Îòêðîéòå ïî ññûëêå SQL-çàïðîñ.
+· Ñäåëàéòå explain analyze ýòîãî çàïðîñà.
+· Îñíîâûâàÿñü íà îïèñàíèè çàïðîñà, íàéäèòå óçêèå ìåñòà è îïèøèòå èõ.
+· Ñðàâíèòå ñ âàøèì çàïðîñîì èç îñíîâíîé ÷àñòè (åñëè âàø çàïðîñ èçíà÷àëüíî óêëàäûâàåòñÿ â 15ìñ — îòëè÷íî!).
+· Ñäåëàéòå ïîñòðî÷íîå îïèñàíèå explain analyze íà ðóññêîì ÿçûêå îïòèìèçèðîâàííîãî çàïðîñà*/
+
+explain analyze
+select distinct cu.first_name  || ' ' || cu.last_name as name, 
+	count(ren.iid) over (partition by cu.customer_id)
+from customer cu
+full outer join 
+	(select *, r.inventory_id as iid, inv.sf_string as sfs, r.customer_id as cid
+	from rental r 
+	full outer join 
+		(select *, unnest(f.special_features) as sf_string
+		from inventory i
+		full outer join film f on f.film_id = i.film_id) as inv --âûñîêèå çàòðàòû 263.41
+		on r.inventory_id = inv.inventory_id) as ren 
+	on ren.cid = cu.customer_id 
+where ren.sfs like '%Behind the Scenes%' --ñàìûå âûñîêèå çàòðàòû 572.62
+order by count desc;--cost 1089 time 195 ms
+
+/*Per node type stats:
+----------------------------------------------------
+|node type				|count|	sum of times| % of query|
+---------------------------------------------------------
+|Bitmap Heap Scan		| 1	  | 44.892 ms	| 8.9 %     |
+|Bitmap Index Scan		| 1	  | 27.434 ms	| 5.4 %     |
+|Hash					| 1	  | 5.111 ms	| 1.0 %     |
+|Hash Full Join			| 1	  | 19.530 ms	| 3.9 %     |
+|Index Scan				| 1   | 51.792 ms	| 10.3 %    |
+|Nested Loop Left Join  | 2	  | 130.133 ms	| 25.8 %    |
+|ProjectSet				| 1	  | 40.123 ms	| 7.9 %     |
+|Seq Scan				| 2	  | 11.929 ms	| 2.4 %     |
+|Sort					| 2	  | 95.597 ms	| 18.9 %    |
+|Subquery Scan			| 1	  | 25.208 ms	| 5.0 %     |
+|Unique					| 1	  | 15.631 ms	| 3.1 %     |
+|WindowAgg				| 1	  | 37.370 ms	| 7.4 %     |
+---------------------------------------------------------
+
+Ïëàí âûïîëíåíèÿ:
+-> îòáîð óíèêàëüíûõ çíà÷åíèé (çàòðàòû 0.02)
+	-> ñîðòèðîâêà ðåçóëüòàòà îòáîðà â select (çàòðàòû 0.8)
+		-> âûïîëåíèå îêîííîé ôóíêöèè (çàòðàòû 0.1)
+			-> ñîðòèðîâêà ïî customer_id (çàòðàòû 0.07)
+				-> ñîåäèíåíèå ñëåâà ðåçóëüòàòà ñêàíèðîâàíèÿ òàáëèöû customer ñ ðåçóëüòàòîì ïðåäûäóùåãî ñêàíèðîâàíèÿ (çàòðàòû 1.17)
+					-> ñîåäèíåíèå ñëåâà ðåçóëüòàòà ïðåäûäóùåãî ñêàíèðîâàíèÿ ñ ðåçóëüòàòîì ñêàíèðîâàíèÿ òàáëèöû òàáëèöû rental (çàòðàòû 73.83)
+						-> ñêàíèðîâàíèå ïðåäûäóùåãî ïîäçàïðîñà, ôèëüòð ïî óñëîâèþ (çàòðàòû 572.62)
+							-> ðàçâîðà÷èâàíèå ìàññèâà ñïåöèàëüíûõ àòðèáóòîâ (çàòðàòû 263.41)
+								-> ïîëíîå âíåøíåå ñîåäèíåíèå òàáëèö film è inventory (çàòðàòû 24.58)
+									-> ñêàíèðîâàíèå òàáëèöû inventory (çàòðàòû 70.81)
+									-> ñêàíèðîâàíèå òàáëèöû film (çàòðàòû 64.00), çàïèñü â ïàìÿòü
+						-> ñêàíèðîâàíèå ïî èíäåêñó òàáëèöû rental è òàáëèöû èç ïîäçàïðîñà (çàòðàòû 14.09)
+							-> ñêàíèðîâàíèå ïî èíäåêñó âíåøíåãî êëþ÷à òàáëèöû inventory è òàáëèöû èç ïîäçàïðîñà (çàòðàòû 4.32)
+					-> ñêàíèðîâàíèå òàáëèöû customer ïî èíäåêñó ïåðâè÷íîãî êëþ÷à (çàòðàòû 0.3)
+*/
+
+--explain (format json) https://tatiyants.com/pev https://explain.depesz.com
+explain analyze
+select c.customer_id,last_name||' '||first_name,count(rental_id)
+from film f
+	join inventory i using (film_id)
+	join rental r using (inventory_id)
+	right join customer c using (customer_id)
+where f.film_id in (
+					select film_id
+					from film
+					where special_features @> array['Behind the Scenes']
+					)
+group by 1,2
+order by 1;--cost 887 time 58 ms
+					
+/* Per node type stats:
+------------------------------------------------
+|node type	    |count|sum of times	|% of query|
+------------------------------------------------
+|Hash	        |  4  | 15.889 ms	| 5.9 %    |
+|Hash Join	    |  4  | 182.380 ms	| 67.2 %   |
+|HashAggregate	|  1  | 27.030 ms	| 10.0 %   |
+|Seq Scan	    |  5  | 43.979 ms	| 16.2 %   |
+|Sort	        |  1  | 2.062 ms    | 0.8 %    |
+------------------------------------------------
+
+Ïëàí âûïîëíåíèÿ:
+-> ñîðòèðîâêà (çàòðàòû 29.13)
+	-> âûáîðêà ñòîëáöîâ: ãðóïïèðîâêà, âû÷èñëåíèå (çàòðàòû 73.73)
+		-> ñîåäèíåíèå ñ òàáëèöåé customer (çàòðàòû 73.46)
+			-> ñîåäèíåíèå ñ òàáëèöåé film (çàòðàòû 35.26)
+				-> ñîåäèíåíèå ïðåäûäóùåãî ñîåäèíåíèÿ ñ ðåçóëüòàòîì âëîæåííîãî çàïðîñà (çàòðàòû 49.02)
+					-> ñîåäèíåíèå òàáëèö rental è inventory (çàòðàòû 99.42)
+							-> ñêàíèðîâàíèå òàáëèöû rental (çàòðàòû 310.44), çàïèñü â ïàìÿòü
+							-> ñêàíèðîâàíèå òàáëèöû inventory (çàòðàòû 70.81), çàïèñü â ïàìÿòü
+								-> ñêàíèðîâàíèå òàáëèöû film (âëîæåííûé çàïðîñ,ôèëüòð ïî óñëîâèþ) (çàòðàòû 66.50), çàïèñü â ïàìÿòü
+							-> ñêàíèðîâàíèå òàáëèöû film (çàòðàòû 64.00), çàïèñü â ïàìÿòü
+							-> ñêàíèðîâàíèå òàáëèöû customer (çàòðàòû 14.99), çàïèñü â ïàìÿòü
+Âûâîä: áîëüøå âñåãî ðåñóðñîâ è âðåìåíè òðåáóåò ñîåäèíåíèå òàáëèö rental è inventory è ñêàíèðîâàíèå òàáëèöû rental*/
+
+--Çàäàíèå 2. Èñïîëüçóÿ îêîííóþ ôóíêöèþ, âûâåäèòå äëÿ êàæäîãî ñîòðóäíèêà ñâåäåíèÿ î ïåðâîé åãî ïðîäàæå
+
+select fs.staff_id,f.film_id,title,amount,payment_date,last_name,first_name 
+from  
+	(select *
+	from
+		(select *,lag(payment_date) over (partition by staff_id order by payment_date) as sale_before
+		from payment) as pay--1555
+	where sale_before is null
+	) as fs--1701
+join rental r using (rental_id)--2123
+join inventory i using (inventory_id)--2146
+join film f using (film_id)--2171
+join customer c on c.customer_id=fs.customer_id;--2194
+		
+/*Çàäàíèå 3. Äëÿ êàæäîãî ìàãàçèíà îïðåäåëèòå è âûâåäèòå îäíèì SQL-çàïðîñîì ñëåäóþùèå àíàëèòè÷åñêèå ïîêàçàòåëè:
+· äåíü, â êîòîðûé àðåíäîâàëè áîëüøå âñåãî ôèëüìîâ (â ôîðìàòå ãîä-ìåñÿö-äåíü);
+· êîëè÷åñòâî ôèëüìîâ, âçÿòûõ â àðåíäó â ýòîò äåíü;
+· äåíü, â êîòîðûé ïðîäàëè ôèëüìîâ íà íàèìåíüøóþ ñóììó (â ôîðìàòå ãîä-ìåñÿö-äåíü);
+· ñóììó ïðîäàæè â ýòîò äåíü*/
+
+--explain analyze
+with cte1 as
+	(select store_id,
+			rental_date,
+			count(film_id) as f_count,
+			row_number () over (partition by store_id order by count(film_id) desc) as f_number
+	from
+		(select store_id,rental_date::date,film_id
+		from rental r
+			join inventory i using (inventory_id)
+		) q
+	group by 1,2
+	),--31-07 354/02-08 343
+	cte2 as
+	(select store_id,
+			payment_date,
+			sum(amount) as a_sum,
+			row_number () over (partition by store_id order by sum(amount)) as a_number
+	from
+		(select store_id,payment_date::date,amount
+		from payment p
+			join rental r using (rental_id)
+			join inventory i using (inventory_id)
+		) w
+	group by 1,2
+	)--14-02 73,84/14-02 42.89 
+select cte1.store_id,
+		rental_date,
+		f_count,
+		payment_date,
+		a_sum
+from cte1
+	join cte2 on cte1.store_id=cte2.store_id and f_number=1 and a_number=1;--cost 5379 time 76 ms
