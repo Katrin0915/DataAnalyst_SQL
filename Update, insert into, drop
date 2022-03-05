@@ -1,0 +1,49 @@
+/*Задание 1. Создайте новую таблицу film_new со следующими полями:
+· film_name — название фильма — тип данных varchar(255) и ограничение not null;
+· film_year — год выпуска фильма — тип данных integer, условие, что значение должно быть больше 0;
+· film_rental_rate — стоимость аренды фильма — тип данных numeric(4,2), значение по умолчанию 0.99;
+· film_duration — длительность фильма в минутах — тип данных integer, ограничение not null и условие, что значение должно быть больше 0*/
+
+create table film_new (
+	film_name varchar(50) not null,
+	film_year int4 check (film_year>0),
+	film_rental_rate numeric(4,2) default 0.99,
+	film_duration int4 not null check (film_duration>0)
+);
+
+/*Задание 2. Заполните таблицу film_new данными с помощью SQL-запроса, где колонкам соответствуют массивы данных:
+· film_name — array[The Shawshank Redemption, The Green Mile, Back to the Future, Forrest Gump, Schindler’s List];
+· film_year — array[1994, 1999, 1985, 1994, 1993];
+· film_rental_rate — array[2.99, 0.99, 1.99, 2.99, 3.99];
+· film_duration — array[142, 189, 116, 142, 195]*/
+
+insert into film_new
+select unnest (array['The Shawshank Redemption', 'The Green Mile', 'Back to the Future', 'Forrest Gump', 'Schindler’s List']),
+		unnest (array[1994, 1999, 1985, 1994, 1993]),
+		unnest (array[2.99, 0.99, 1.99, 2.99, 3.99]),
+		unnest (array[142, 189, 116, 142, 195])
+;
+
+/*Обновите стоимость аренды фильмов в таблице film_new с учётом информации, что стоимость аренды всех фильмов поднялась на 1.41*/
+
+update film_new
+set film_rental_rate = (film_rental_rate+1.41);
+
+--Задание 4. Фильм с названием Back to the Future был снят с аренды, удалите строку с этим фильмом из таблицы film_new
+
+delete from film_new
+where film_name='Back to the Future';
+
+--Задание 5. Добавьте в таблицу film_new запись о любом другом новом фильме
+
+insert into film_new
+values ('Jurasic World',2015,6.8,124);
+
+/*Задание 6. Напишите SQL-запрос, который выведет все колонки из таблицы film_new, а также новую вычисляемую колонку «длительность фильма в часах», округлённую до десятых*/
+
+select *, round((film_duration/60.),2) as film_duration_hour
+from film_new;
+
+--Задание 7. Удалите таблицу film_new
+
+drop table film_new;
