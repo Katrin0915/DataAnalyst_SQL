@@ -1,0 +1,32 @@
+--выводим названия ограничений первичных ключей, соединяя две таблицы
+
+--выводим информацию о таблицах--
+select * from information_schema.key_column_usage;
+select * from information_schema.table_constraints;
+
+--результат 19 строк, а не 17 из-за двух таблиц с составным первичным ключом--
+select kcu.table_name, kcu.constraint_name
+from information_schema.key_column_usage kcu
+	join information_schema.table_constraints tc
+		using (constraint_name)
+where kcu.constraint_schema = 'public' and constraint_type = 'PRIMARY KEY'
+order by 1,2;
+
+--этот запрос не работает из-за distinct--
+select kcu.table_name, distinct kcu.constraint_name
+from information_schema.key_column_usage kcu
+	join information_schema.table_constraints tc
+		using (constraint_name)
+where kcu.constraint_schema = 'public' and constraint_type = 'PRIMARY KEY'
+order by 1,2;
+
+--используем группировку--
+select kcu.table_name as Название_таблицы,
+		kcu.constraint_name as Название_первичного_ключа
+from information_schema.key_column_usage kcu
+	join information_schema.table_constraints tc
+		using (constraint_name)
+where kcu.constraint_schema = 'public' and constraint_type = 'PRIMARY KEY'
+group by 1,2
+order by 1,2;
+--результат 17 строк--
